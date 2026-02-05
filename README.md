@@ -80,6 +80,52 @@ The template can include any formatting: custom fonts, watermarks, headers, foot
 - Review and edit the list before generation
 - Single download for all certificates
 
+## Local Distribution (Portable App)
+
+To create a portable version for distribution to other users:
+
+### Building the Executable
+
+1. Install PyInstaller (one-time setup):
+   ```bash
+   pip install pyinstaller
+   ```
+
+2. Run the build script:
+   ```bash
+   build.bat
+   ```
+
+3. This creates a `dist` folder with `CertificateGenerator.exe`
+
+### Distributing to Users
+
+Package and share these files/folders:
+- `dist/CertificateGenerator.exe` - The launcher
+- `app.py` - The main application
+- `requirements.txt` - Dependencies list
+- Any template files (optional)
+
+**Important:** Users need Python installed on their machine, or you can include a portable Python distribution.
+
+### User Instructions
+
+1. Extract all files to a folder
+2. Double-click `CertificateGenerator.exe`
+3. The app will open in the default browser
+4. Close the terminal window to stop the app
+
+**Note:** The source code (app.py) is visible and editable. This is suitable for trusted users (family, colleagues) but not for public/commercial distribution.
+
+## Azure App Service Deployment
+
+To deploy on Azure App Service:
+
+1. Use a Linux App Service plan
+2. Add startup command: `streamlit run app.py --server.port $PORT`
+3. Ensure `requirements.txt` is included in deployment
+4. Configure port binding in Azure portal
+
 ## Version History
 
 - **0.2** - Multi-certificate support, batch generation, test data feature

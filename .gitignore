@@ -1,3 +1,35 @@
+# Python virtual environment
 /.venv
+venv/
+env/
+
+# Template files (user-specific)
 /certificate_template.docx
 /~$rtificate_template.docx
+*.docx
+
+# PyInstaller files
+build/
+dist/
+*.spec
+*.toc
+*.pyz
+*.pkg
+base_library.zip
+
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
