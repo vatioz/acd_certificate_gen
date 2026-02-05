@@ -122,8 +122,16 @@ def generate_multi_certificate(template_bytes, people_list):
                 br = OxmlElement('w:br')
                 br.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}type', 'page')
                 run.append(br)
-                # Insert at the beginning of the paragraph
-                new_element.insert(0, run)
+                
+                # Find the position to insert - after pPr (paragraph properties) if it exists
+                insert_pos = 0
+                for i, child in enumerate(new_element):
+                    if child.tag.endswith('pPr'):
+                        insert_pos = i + 1
+                        break
+                
+                # Insert the page break run at the correct position
+                new_element.insert(insert_pos, run)
                 first_element = False
             
             # Append to final document
