@@ -278,14 +278,13 @@ def main():
                                 except ValueError:
                                     pass
                             
-                            # Format DOB: DD.MM.YYYY -> DD. MM. YYYY
-                            formatted_dob = dob.replace('.', '. ')
-                            if not formatted_dob.endswith(' '):
-                                formatted_dob = formatted_dob.rstrip()
-                            # Ensure proper spacing
+                            # Format DOB: DD.MM.YYYY -> D. M. YYYY (no leading zeros)
                             parts = dob.split('.')
                             if len(parts) == 3:
-                                formatted_dob = f"{parts[0]}. {parts[1]}. {parts[2]}"
+                                day = int(parts[0])
+                                month = int(parts[1])
+                                year = parts[2]
+                                formatted_dob = f"{day}. {month}. {year}"
                             
                             # Combine name: "Name Surname"
                             full_name = f"{name} {surname}"
@@ -372,8 +371,8 @@ def main():
                     if not name or not dob:
                         st.error("⚠️ Please fill in all fields!")
                     else:
-                        # Format date in Czech format
-                        formatted_dob = dob.strftime("%d. %m. %Y")
+                        # Format date in Czech format (no leading zeros)
+                        formatted_dob = f"{dob.day}. {dob.month}. {dob.year}"
                         
                         # Add to list
                         st.session_state.people_list.append({
