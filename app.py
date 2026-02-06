@@ -2,10 +2,11 @@ import streamlit as st
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_BREAK
-from io import BytesIO
+from io import BytesIO, StringIO
 from datetime import datetime
 import re
 import copy
+import csv
 
 
 def replace_placeholders(doc, replacements):
@@ -217,6 +218,10 @@ def main():
     if 'starting_counter' not in st.session_state:
         st.session_state.starting_counter = 1
     
+    # Initialize session state for CSV upload tracking
+    if 'csv_uploaded' not in st.session_state:
+        st.session_state.csv_uploaded = False
+    
     # File uploader
     st.subheader("1. Upload Certificate Template")
     uploaded_file = st.file_uploader(
@@ -235,75 +240,154 @@ def main():
     if st.session_state.template is not None:
         st.subheader("2. Add Certificate Holders")
         
-        # Test button to add 8 sample people
-        if st.button("🧪 Add 8 Test People", type="secondary"):
-            st.session_state.people_list = [
-                {'name': 'Jan Novák', 'dob': '01. 01. 1990', 'gender': 'male'},
-                {'name': 'Petr Dvořák', 'dob': '15. 03. 1985', 'gender': 'male'},
-                {'name': 'Marie Svobodová', 'dob': '22. 07. 1992', 'gender': 'female'},
-                {'name': 'Eva Černá', 'dob': '10. 12. 1988', 'gender': 'female'},
-                {'name': 'Tomáš Procházka', 'dob': '05. 05. 1995', 'gender': 'male'},
-                {'name': 'Jana Kučerová', 'dob': '18. 09. 1991', 'gender': 'female'},
-                {'name': 'Pavel Horák', 'dob': '28. 02. 1987', 'gender': 'male'},
-                {'name': 'Lucie Málková', 'dob': '14. 11. 1993', 'gender': 'female'}
-            ]
-            st.rerun()
+        # Only show CSV uploader if not already uploaded
+        if not st.session_state.people_list or st.button("🔄 Clear and Upload New CSV", type="secondary"):
+            st.session_state.people_list = []
+            st.session_state.csv_uploaded = False
         
-        with st.form("certificate_form"):
-            col1, col2, col3 = st.columns([3, 3, 2])
+        if not st.session_state.csv_uploaded:
+            # CSV Upload option
+            st.markdown("**Option A: Upload CSV File**")
+            csv_file = st.file_uploader(
+                "Upload CSV (COUNTER,Surname,Name,DOB - no headers)",
+                type=['csv'],
+                help="Format: COUNTER,Surname,Name,DOB (e.g., 15,Novák,Jan,01.01.1990)",
+                key="csv_uploader"
+            )
             
-            with col1:
-                name = st.text_input(
-                    "Full Name",
-                    placeholder="Jan Novák",
-                    help="Enter the full name (Surname Name format for filename)"
-                )
-            
-            with col2:
-                dob = st.date_input(
-                    "Date of Birth",
-                    value=None,
-                    min_value=datetime(1900, 1, 1),
-                    max_value=datetime.today(),
-                    format="DD.MM.YYYY",
-                    help="Select date of birth"
-                )
-            
-            with col3:
-                gender = st.radio(
-                    "Gender",
-                    options=['female', 'male'],
-                    format_func=lambda x: '👩 Žena' if x == 'female' else '👨 Muž',
-                    index=0,
-                    help="Default: Žena"
-                )
-            
-            col_a, col_b = st.columns(2)
-            with col_a:
-                add_person = st.form_submit_button("➕ Add Person", type="secondary")
-            with col_b:
-                clear_all = st.form_submit_button("🗑️ Clear All", type="secondary")
-            
-            if add_person:
-                if not name or not dob:
-                    st.error("⚠️ Please fill in all fields!")
-                else:
-                    # Format date in Czech format
-                    formatted_dob = dob.strftime("%d. %m. %Y")
+            if csv_file is not None:
+                try:
+                    # Read CSV with UTF-8 encoding
+                    content = csv_file.read().decode('utf-8')
+                    csv_reader = csv.reader(StringIO(content))
                     
-                    # Add to list
-                    st.session_state.people_list.append({
-                        'name': name,
-                        'dob': formatted_dob,
-                        'gender': gender
-                    })
-                    gender_label = '👩' if gender == 'female' else '👨'
-                    st.success(f"✅ Added {gender_label} {name}")
-                    st.rerun()
+                    imported_people = []
+                    first_counter = None
+                    
+                    for row in csv_reader:
+                        if len(row) >= 4:
+                            counter = row[0].strip()
+                            surname = row[1].strip()
+                            name = row[2].strip()
+                            dob = row[3].strip()
+                            
+                            # Store first counter value
+                            if first_counter is None:
+                                try:
+                                    first_counter = int(counter)
+                                except ValueError:
+                                    pass
+                            
+                            # Format DOB: DD.MM.YYYY -> DD. MM. YYYY
+                            formatted_dob = dob.replace('.', '. ')
+                            if not formatted_dob.endswith(' '):
+                                formatted_dob = formatted_dob.rstrip()
+                            # Ensure proper spacing
+                            parts = dob.split('.')
+                            if len(parts) == 3:
+                                formatted_dob = f"{parts[0]}. {parts[1]}. {parts[2]}"
+                            
+                            # Combine name: "Name Surname"
+                            full_name = f"{name} {surname}"
+                            
+                            imported_people.append({
+                                'name': full_name,
+                                'dob': formatted_dob,
+                                'gender': 'female'  # Default to female
+                            })
+                    
+                    if imported_people:
+                        st.session_state.people_list = imported_people
+                        st.session_state.csv_uploaded = True
+                        if first_counter is not None:
+                            st.session_state.starting_counter = first_counter
+                        st.success(f"✅ Imported {len(imported_people)} people from CSV")
+                        if first_counter is not None:
+                            st.info(f"📊 Starting counter set to: {first_counter}")
+                        st.rerun()
+                    else:
+                        st.error("⚠️ No valid rows found in CSV")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error reading CSV: {str(e)}")
             
-            if clear_all:
-                st.session_state.people_list = []
+            st.markdown("**Option B: Manual Entry**")
+        else:
+            st.info(f"📊 CSV loaded with {len(st.session_state.people_list)} people. Use the button above to upload a different CSV.")
+        
+        # Manual entry section - only show if CSV not uploaded
+        if not st.session_state.csv_uploaded:
+            st.markdown("**Option B: Manual Entry**")
+            
+            # Test button to add 8 sample people
+            if st.button("🧪 Add 8 Test People", type="secondary"):
+                st.session_state.people_list = [
+                    {'name': 'Jan Novák', 'dob': '01. 01. 1990', 'gender': 'male'},
+                    {'name': 'Petr Dvořák', 'dob': '15. 03. 1985', 'gender': 'male'},
+                    {'name': 'Marie Svobodová', 'dob': '22. 07. 1992', 'gender': 'female'},
+                    {'name': 'Eva Černá', 'dob': '10. 12. 1988', 'gender': 'female'},
+                    {'name': 'Tomáš Procházka', 'dob': '05. 05. 1995', 'gender': 'male'},
+                    {'name': 'Jana Kučerová', 'dob': '18. 09. 1991', 'gender': 'female'},
+                    {'name': 'Pavel Horák', 'dob': '28. 02. 1987', 'gender': 'male'},
+                    {'name': 'Lucie Málková', 'dob': '14. 11. 1993', 'gender': 'female'}
+                ]
                 st.rerun()
+        
+            with st.form("certificate_form"):
+                col1, col2, col3 = st.columns([3, 3, 2])
+                
+                with col1:
+                    name = st.text_input(
+                        "Full Name",
+                        placeholder="Jan Novák",
+                        help="Enter the full name (Surname Name format for filename)"
+                    )
+                
+                with col2:
+                    dob = st.date_input(
+                        "Date of Birth",
+                        value=None,
+                        min_value=datetime(1900, 1, 1),
+                        max_value=datetime.today(),
+                        format="DD.MM.YYYY",
+                        help="Select date of birth"
+                    )
+                
+                with col3:
+                    gender = st.radio(
+                        "Gender",
+                        options=['female', 'male'],
+                        format_func=lambda x: '👩 Žena' if x == 'female' else '👨 Muž',
+                        index=0,
+                        help="Default: Žena"
+                    )
+                
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    add_person = st.form_submit_button("➕ Add Person", type="secondary")
+                with col_b:
+                    clear_all = st.form_submit_button("🗑️ Clear All", type="secondary")
+                
+                if add_person:
+                    if not name or not dob:
+                        st.error("⚠️ Please fill in all fields!")
+                    else:
+                        # Format date in Czech format
+                        formatted_dob = dob.strftime("%d. %m. %Y")
+                        
+                        # Add to list
+                        st.session_state.people_list.append({
+                            'name': name,
+                            'dob': formatted_dob,
+                            'gender': gender
+                        })
+                        gender_label = '👩' if gender == 'female' else '👨'
+                        st.success(f"✅ Added {gender_label} {name}")
+                        st.rerun()
+                
+                if clear_all:
+                    st.session_state.people_list = []
+                    st.rerun()
         
         # Display current list
         if st.session_state.people_list:
@@ -406,12 +490,17 @@ def main():
         
         2. **Upload** the template using the file uploader
         
-        3. **Add people** - Enter name, date of birth, and gender
-           - Default gender: 👩 Žena
-           - Click gender button in list to toggle
-           - Use test data button for quick testing
+        3. **Add people** - Choose one of the options:
+           - **Option A: Upload CSV** - Format: COUNTER,Surname,Name,DOB
+             - Example: `15,Novák,Jan,01.01.1990`
+             - No headers, UTF-8 encoding, comma-separated
+             - Counter from first row sets starting number
+           - **Option B: Manual Entry** - Enter individually
+           - **Test Data** - Quick test with 8 sample people
+           - All imported people default to 👩 Žena
         
         4. **Review** the list and adjust gender if needed
+           - Click gender button to toggle male/female
         
         5. **Set starting number** for the certificate series
            - Counter auto-increments for each person
