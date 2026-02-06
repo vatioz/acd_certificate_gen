@@ -17,22 +17,45 @@ def replace_placeholders(doc, replacements):
     
     def replace_in_paragraph(paragraph):
         """Replace placeholders in a paragraph, handling split runs."""
+        # Check if any placeholder exists in the full paragraph text
+        full_text = paragraph.text
+        new_text = full_text
+        
         for key, value in replacements.items():
-            if key in paragraph.text:
-                # Get the full text
-                full_text = paragraph.text
-                # Replace all occurrences
-                new_text = full_text.replace(key, value)
+            new_text = new_text.replace(key, value)
+        
+        if full_text != new_text:
+            # Preserve formatting from first run if available
+            if paragraph.runs:
+                # Store the font properties from the first run
+                first_run = paragraph.runs[0]
+                font_name = first_run.font.name
+                font_size = first_run.font.size
+                font_bold = first_run.font.bold
+                font_italic = first_run.font.italic
+                font_underline = first_run.font.underline
                 
-                if full_text != new_text:
-                    # Clear all runs
-                    for run in paragraph.runs:
-                        run.text = ''
-                    # Set the new text in the first run (preserves first run's formatting)
-                    if paragraph.runs:
-                        paragraph.runs[0].text = new_text
-                    else:
-                        paragraph.add_run(new_text)
+                # Clear all runs except the first one
+                while len(paragraph.runs) > 1:
+                    paragraph.runs[-1]._element.getparent().remove(paragraph.runs[-1]._element)
+                
+                # Update the first run's text
+                paragraph.runs[0].text = new_text
+                
+                # Restore formatting
+                if font_name:
+                    paragraph.runs[0].font.name = font_name
+                if font_size:
+                    paragraph.runs[0].font.size = font_size
+                if font_bold is not None:
+                    paragraph.runs[0].font.bold = font_bold
+                if font_italic is not None:
+                    paragraph.runs[0].font.italic = font_italic
+                if font_underline is not None:
+                    paragraph.runs[0].font.underline = font_underline
+            else:
+                # No existing runs, just add the text
+                paragraph.add_run(new_text)
     
     # Replace in paragraphs
     for paragraph in doc.paragraphs:
@@ -134,34 +157,31 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1):
             starting_counter + idx
         )
         
+        # Add page break to the last paragraph of the previous certificate
+        # Find the last paragraph in final_doc
+        from docx.oxml import OxmlElement
+        last_para = None
+        for elem in reversed(final_doc.element.body):
+            if elem.tag.endswith('p'):
+                last_para = elem
+                break
+        
+        if last_para is not None:
+            # Add page break run to the end of the last paragraph
+            page_break_run = OxmlElement('w:r')
+            page_break_br = OxmlElement('w:br')
+            page_break_br.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}type', 'page')
+            page_break_run.append(page_break_br)
+            last_para.append(page_break_run)
+        
         # Copy all elements from temp_doc to final_doc
-        first_element = True
         for element in temp_doc.element.body:
             # Skip section properties
             if element.tag.endswith('sectPr'):
                 continue
             
-            # Deep copy the element
+            # Deep copy the element - preserves all formatting
             new_element = copy.deepcopy(element)
-            
-            # Add page break to the first paragraph element
-            if first_element and new_element.tag.endswith('p'):
-                from docx.oxml import OxmlElement
-                run = OxmlElement('w:r')
-                br = OxmlElement('w:br')
-                br.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}type', 'page')
-                run.append(br)
-                
-                # Find the position to insert - after pPr (paragraph properties) if it exists
-                insert_pos = 0
-                for i, child in enumerate(new_element):
-                    if child.tag.endswith('pPr'):
-                        insert_pos = i + 1
-                        break
-                
-                # Insert the page break run at the correct position
-                new_element.insert(insert_pos, run)
-                first_element = False
             
             # Append to final document
             final_doc.element.body.append(new_element)
