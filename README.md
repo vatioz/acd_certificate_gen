@@ -6,6 +6,9 @@ A Streamlit web application for generating personalized certificates from Word d
 
 - Upload .docx certificate templates with full style preservation
 - Add multiple certificate holders to a list
+- **Gender selection with automatic verb conjugation (Czech)**
+- **Certificate numbering with auto-increment counter**
+- **Automatic year insertion**
 - Replace placeholders with personalized data
 - Generate all certificates in a single document (one certificate per page)
 - Preserves all template formatting: fonts, styles, watermarks, headings
@@ -48,8 +51,21 @@ streamlit run app.py
 
 ## Template Placeholders
 
+### Basic Placeholders
 - `[NAME]` - Will be replaced with the full name
 - `[DOB]` - Will be replaced with the date of birth in DD. MM. YYYY format
+- `[COUNTER]` - Certificate number (auto-increments for each person in batch)
+- `[YEAR]` - Current year (automatic)
+
+### Gender-Dependent Placeholders (Czech)
+
+These placeholders automatically conjugate based on the person's gender:
+
+- `[ZÍSKAL/A]` → získal (male) / získala (female)
+- `[ABSOLVOVAL/A]` → absolvoval / absolvovala
+- `[NAROZEN/A]` → narozen / narozena
+
+**Default gender:** Female (Žena)
 
 ## Example Template
 
@@ -58,12 +74,22 @@ Create a Word document with content like:
 ```
 Certificate of Completion
 
+Certificate No. [COUNTER]/[YEAR]
+
 This is to certify that [NAME], born on [DOB], has successfully completed...
+
+[NAME] [ABSOLVOVAL/A] kurz a [ZÍSKAL/A] certifikát.
 ```
 
 The template can include any formatting: custom fonts, watermarks, headers, footers, styles, and more. All formatting will be preserved in the generated certificates.
 
 ## Features in Detail
+
+### Certificate Numbering
+- Set starting certificate number for each batch
+- Counter automatically increments for each person
+- Year placeholder automatically uses current year
+- No persistence needed - user manages series manually
 
 ### Multi-Certificate Generation
 - Generate multiple certificates in one document
@@ -128,5 +154,7 @@ To deploy on Azure App Service:
 
 ## Version History
 
+- **0.4** - Certificate counter with auto-increment and year support
+- **0.3** - Gender selection and automatic Czech verb conjugation
 - **0.2** - Multi-certificate support, batch generation, test data feature
 - **0.1** - Initial release
