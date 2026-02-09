@@ -7,14 +7,21 @@ import sys
 import subprocess
 
 def main():
-    # Get the directory where the script is located
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    app_path = os.path.join(script_dir, "app.py")
+    # Determine the path to app.py
+    # When running as PyInstaller bundle, files are in _MEIPASS temp directory
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        bundle_dir = sys._MEIPASS
+    else:
+        # Running as normal Python script
+        bundle_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    app_path = os.path.join(bundle_dir, "app.py")
     
     # Check if app.py exists
     if not os.path.exists(app_path):
         print("Error: app.py not found!")
-        print(f"Looking in: {script_dir}")
+        print(f"Looking in: {bundle_dir}")
         input("Press Enter to exit...")
         sys.exit(1)
     

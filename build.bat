@@ -11,7 +11,14 @@ if exist dist rmdir /s /q dist
 if exist launch.spec del launch.spec
 
 REM Build the executable
-pyinstaller --onefile --name "CertificateGenerator" --icon=NONE launch.py
+pyinstaller --onefile ^
+    --name "CertificateGenerator" ^
+    --icon=NONE ^
+    --add-data "app.py;." ^
+    --add-data "certificate_generator.py;." ^
+    --add-data "data_utils.py;." ^
+    --add-data "czech_names.py;." ^
+    launch.py
 
 echo.
 echo Build complete!
