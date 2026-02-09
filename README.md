@@ -6,13 +6,17 @@ A Streamlit web application for generating personalized certificates from Word d
 
 - Upload .docx certificate templates with full style preservation
 - Add multiple certificate holders to a list
+- **CSV bulk import** with COUNTER,Surname,Name,DOB format
+- **Automatic gender detection** from Czech first names database (7,164 names from Ministry of Interior)
+- ⚠️ **Visual indicators** for unrecognized names requiring manual verification
+- 🔵🔴 **Color-coded names** for easy gender review (blue for male, pink for female)
 - **Gender selection with automatic verb conjugation (Czech)**
 - **Certificate numbering with auto-increment counter**
 - **Automatic year insertion**
 - Replace placeholders with personalized data
 - Generate all certificates in a single document (one certificate per page)
 - Preserves all template formatting: fonts, styles, watermarks, headings
-- Czech date format support (DD. MM. YYYY)
+- Czech date format support (D. M. YYYY - no leading zeros)
 - Test data generator for quick testing
 - Download single file containing all certificates
 
@@ -37,12 +41,13 @@ streamlit run app.py
    - `[DOB]` - for the date of birth
 
 4. Add certificate holders:
-   - Enter Full Name and Date of Birth
-   - Click "Add Person" to add to the list
-   - Repeat for all certificate holders
+   - **Option A: Manual Entry** - Enter Full Name and Date of Birth
+   - **Option B: CSV Upload** - Upload CSV file with COUNTER,Surname,Name,DOB format
    - Use "Add 8 Test People" button for quick testing
 
-5. Review the list of certificate holders
+5. Review the list of certificate holders:
+   - Names with ⚠️ indicator require gender verification
+   - Toggle gender with 👩 Žena / 👨 Muž buttons
    - Remove individuals if needed using the delete button
 
 6. Click "Generate All Certificates"
@@ -66,6 +71,40 @@ These placeholders automatically conjugate based on the person's gender:
 - `[NAROZEN/A]` → narozen / narozena
 
 **Default gender:** Female (Žena)
+
+## CSV Format
+
+CSV file should have **no headers** and follow this format:
+```
+COUNTER,Surname,Name,DOB
+15,Novák,Jan,01.01.1990
+16,Dvořáková,Marie,15.03.1985
+```
+
+**Gender Auto-Detection:**
+- The app automatically detects gender from Czech first names (7,164 names from Ministry of Interior)
+- Unrecognized names show ⚠️ indicator - please verify manually
+- Names default to female if not recognized
+- You can always toggle gender with the 👩 / 👨 buttons
+
+## Updating Name Database
+
+The Czech names database is sourced from the Ministry of Interior's official registry:
+- **Source:** https://mv.gov.cz/clanek/seznam-rodove-neutralnich-jmen.aspx
+- **Current file:** `OpenData_-_seznam_jmen_k_2026-01-31_v2.csv`
+
+**To update the name database:**
+
+1. Download the latest CSV from the Ministry website
+2. Replace `OpenData_-_seznam_jmen_k_2026-01-31_v2.csv` with the new file
+3. (Optional) Edit the CSV to reclassify neutral names (NEUTRAL → MUZ or ZENA)
+4. Run the extraction script:
+   ```bash
+   python extract_names_csv.py
+   ```
+5. This regenerates `czech_names.py` with the updated names
+
+**Note:** The database includes neutral names (like Andrea, Karel, Pavla) which are skipped during extraction. You can manually edit the CSV to assign them to male (MUZ) or female (ZENA) categories as needed.
 
 ## Example Template
 
@@ -154,7 +193,26 @@ To deploy on Azure App Service:
 
 ## Version History
 
-- **0.4** - Certificate counter with auto-increment and year support
-- **0.3** - Gender selection and automatic Czech verb conjugation
-- **0.2** - Multi-certificate support, batch generation, test data feature
-- **0.1** - Initial release
+- **0.5** (2025-02-08)
+  - Refactored code into modular structure (certificate_generator.py, data_utils.py)
+  - Separated UI components into focused functions
+  - Added automatic gender detection from Czech names database (7,164 names from Ministry of Interior)
+  - Switched to CSV-based name source for easier maintenance
+  - Visual indicators (⚠️) for unrecognized names
+  - Color-coded names: 🔵 blue for males, 🔴 pink for females
+  - Date format without leading zeros (D. M. YYYY)
+  - Improved code maintainability and testability
+
+- **0.4** (2025-02-06)
+  - Certificate counter with auto-increment
+  - Year placeholder [YEAR]
+  - CSV upload functionality
+
+- **0.3** (2025-02-04)
+  - Gender selection and automatic Czech verb conjugation
+
+- **0.2** (2025-02-03)
+  - Multi-certificate support, batch generation, test data feature
+
+- **0.1** (2025-02-01)
+  - Initial release

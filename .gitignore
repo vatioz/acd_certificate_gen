@@ -8,6 +8,10 @@ env/
 /~$rtificate_template.docx
 *.docx
 
+# Source data files - keep CSV in git, exclude other data files
+*.xlsx
+*.xls
+
 # PyInstaller files
 build/
 dist/

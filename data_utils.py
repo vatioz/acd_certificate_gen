@@ -2,11 +2,12 @@
 Data Utilities Module
 
 Handles data processing and formatting utilities.
-Includes date formatting and CSV parsing functions.
+Includes date formatting, CSV parsing, and gender detection.
 """
 
 from io import StringIO
 import csv
+from czech_names import MALE_NAMES, FEMALE_NAMES
 
 
 def format_date_no_leading_zeros(day, month, year):
@@ -24,21 +25,49 @@ def format_date_no_leading_zeros(day, month, year):
     return f"{day}. {month}. {year}"
 
 
+def detect_gender_from_name(full_name):
+    """
+    Detect gender based on Czech first name.
+    
+    Args:
+        full_name: Full name or first name to check
+        
+    Returns:
+        Tuple of (gender, detected_bool):
+        - gender: 'male', 'female', or None if not recognized
+        - detected_bool: True if gender was auto-detected, False otherwise
+    """
+    # Extract first name (assume it's the first word)
+    first_name = full_name.strip().split()[0] if full_name else ""
+    
+    # Normalize to uppercase for matching
+    first_name_upper = first_name.upper()
+    
+    if first_name_upper in MALE_NAMES:
+        return 'male', True
+    elif first_name_upper in FEMALE_NAMES:
+        return 'female', True
+    else:
+        return None, False
+
+
 def parse_csv_file(csv_file):
     """
     Parses CSV file and returns list of people with their data.
     Expected CSV format: COUNTER,Surname,Name,DOB (no headers)
+    
+    Auto-detects gender based on Czech first name database.
     
     Args:
         csv_file: Uploaded CSV file object
         
     Returns:
         Tuple of (people_list, first_counter)
-        - people_list: List of dicts with 'name', 'dob', 'gender'
+        - people_list: List of dicts with 'name', 'dob', 'gender', 'gender_detected'
         - first_counter: Integer counter from first row, or None
     """
-    # Read CSV with UTF-8 encoding
-    content = csv_file.read().decode('utf-8')
+    # Read CSV with UTF-8 encoding and strip BOM if present
+    content = csv_file.read().decode('utf-8-sig')  # utf-8-sig automatically removes BOM
     csv_reader = csv.reader(StringIO(content))
     
     imported_people = []
@@ -71,10 +100,14 @@ def parse_csv_file(csv_file):
             # Combine name: "Name Surname"
             full_name = f"{name} {surname}"
             
+            # Auto-detect gender from first name
+            detected_gender, gender_detected = detect_gender_from_name(name)
+            
             imported_people.append({
                 'name': full_name,
                 'dob': formatted_dob,
-                'gender': 'female'  # Default to female
+                'gender': detected_gender if detected_gender else 'female',  # Default to female if unknown
+                'gender_detected': gender_detected  # Track if auto-detected
             })
     
     return imported_people, first_counter

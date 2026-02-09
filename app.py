@@ -165,18 +165,40 @@ def render_people_list():
         return
     
     st.subheader("3. Certificate Holders List")
+    st.markdown(f"**Total: {len(st.session_state.people_list)} people**")
     
+    # Header row
+    col1, col2, col3, col4 = st.columns([3, 3, 1.5, 1])
+    with col1:
+        st.markdown("**Name**")
+    with col2:
+        st.markdown("**Date of Birth**")
+    with col3:
+        st.markdown("**Gender**")
+    with col4:
+        st.markdown("**Action**")
+    
+    st.divider()
+    
+    # Data rows
     for idx, person in enumerate(st.session_state.people_list):
+        current_gender = person.get('gender', 'female')
+        
+        # Color scheme
+        dot = '🔵' if current_gender == 'male' else '🔴'
+        text_color = '#1976D2' if current_gender == 'male' else '#C2185B'  # Blue for male, pink for female
+        
         col1, col2, col3, col4 = st.columns([3, 3, 1.5, 1])
         
         with col1:
-            st.text(person['name'])
+            # Add warning indicator and colored dot + text
+            warning = "⚠️ " if not person.get('gender_detected', True) else ""
+            st.markdown(f"{warning}{dot} <span style='color: {text_color}; font-weight: 500;'>{person['name']}</span>", unsafe_allow_html=True)
         
         with col2:
             st.text(person['dob'])
         
         with col3:
-            current_gender = person.get('gender', 'female')
             gender_icon = '👩 Žena' if current_gender == 'female' else '👨 Muž'
             if st.button(gender_icon, key=f"gender_{idx}", help="Klikněte pro změnu pohlaví"):
                 new_gender = 'male' if current_gender == 'female' else 'female'
@@ -184,7 +206,7 @@ def render_people_list():
                 st.rerun()
         
         with col4:
-            if st.button("🗑️", key=f"del_{idx}", help="Remove"):
+            if st.button("🗑️", key=f"del_{idx}", help="Odstranit"):
                 st.session_state.people_list.pop(idx)
                 st.rerun()
     
@@ -206,7 +228,6 @@ def render_certificate_generator():
             min_value=1,
             value=st.session_state.starting_counter,
             step=1,
-            key='counter_input',
             help="First certificate will be numbered with this value, then increments for each person"
         )
         st.session_state.starting_counter = starting_counter
