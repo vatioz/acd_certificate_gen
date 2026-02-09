@@ -113,7 +113,7 @@ def generate_certificate(template_bytes, name, dob, gender='female', counter=1):
     replacements = {
         '[NAME]': name,
         '[DOB]': dob,
-        '[YEAR]': str(datetime.now().year),
+        '[YEAR]': str(year if year is not None else datetime.now().year),
         '[COUNTER]': str(counter),
         # Common Czech verbs in past tense
         '[ZISKAL/A]': f'získal{verb_ending}',
@@ -127,7 +127,7 @@ def generate_certificate(template_bytes, name, dob, gender='female', counter=1):
     return doc
 
 
-def generate_multi_certificate(template_bytes, people_list, starting_counter=1):
+def generate_multi_certificate(template_bytes, people_list, starting_counter=1, year=None):
     """
     Generate multiple certificates in a single document.
     Each certificate on a separate page.
@@ -136,6 +136,7 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1):
         template_bytes: Template document bytes
         people_list: List of people with name, dob, gender
         starting_counter: Starting certificate number (increments for each person)
+        year: Certificate year (defaults to current year)
     """
     if not people_list:
         return None
@@ -147,7 +148,8 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1):
         first_person['name'],
         first_person['dob'],
         first_person.get('gender', 'female'),
-        starting_counter
+        starting_counter,
+        year
     )
     
     # Add remaining certificates with page breaks
@@ -158,7 +160,8 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1):
             person['name'],
             person['dob'],
             person.get('gender', 'female'),
-            starting_counter + idx
+            starting_counter + idx,
+            year
         )
         
         # Add page break to the last paragraph of the previous certificate

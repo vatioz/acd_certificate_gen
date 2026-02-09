@@ -234,14 +234,22 @@ def render_certificate_generator():
     
     with col_year:
         current_year = datetime.now().year
-        st.info(f"📅 Year: {current_year}")
+        certificate_year = st.number_input(
+            "Certificate Year",
+            min_value=2000,
+            max_value=2100,
+            value=current_year,
+            step=1,
+            help="Year to use in certificates (e.g., for certificates from last year)"
+        )
     
     if st.button("📄 Generate All Certificates", type="primary", use_container_width=True):
         try:
             certificate_bytes = generate_multi_certificate(
                 st.session_state.template,
                 st.session_state.people_list,
-                starting_counter
+                starting_counter,
+                certificate_year
             )
             
             # Generate filename
