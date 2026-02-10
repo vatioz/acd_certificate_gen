@@ -58,9 +58,11 @@ streamlit run app.py
 
 ### Basic Placeholders
 - `[NAME]` - Will be replaced with the full name
-- `[DOB]` - Will be replaced with the date of birth in DD. MM. YYYY format
+- `[PRE]` - Name prefix from CSV (e.g., "Dr. ")
+- `[POST]` - Name suffix from CSV (e.g., ", Ph.D.")
+- `[DOB]` - Will be replaced with the date of birth in D. M. YYYY format
 - `[COUNTER]` - Certificate number (auto-increments for each person in batch)
-- `[YEAR]` - Current year (automatic)
+- `[YEAR]` - Certificate year (editable, defaults to current year)
 
 ### Gender-Dependent Placeholders (Czech)
 
@@ -76,10 +78,25 @@ These placeholders automatically conjugate based on the person's gender:
 
 CSV file should have **no headers** and follow this format:
 ```
-COUNTER,Surname,Name,DOB
-15,Novák,Jan,01.01.1990
-16,Dvořáková,Marie,15.03.1985
+COUNTER,PRE,Surname,Name,POST,DOB
+15,,Novák,Jan,,01.01.1990
+16,Dr.,Dvořáková,Marie,Ph.D.,15.03.1985
+17,Ing.,Svoboda,Petr,,22.08.1978
 ```
+
+**Column Details:**
+- **COUNTER**: Certificate number
+- **PRE**: Name prefix (e.g., "Dr.", "Ing.") - leave empty if none
+- **Surname**: Last name
+- **Name**: First name
+- **POST**: Name suffix (e.g., "Ph.D.", "CSc.") - leave empty if none
+- **DOB**: Date of birth (DD.MM.YYYY format)
+
+**Prefix/Suffix Formatting:**
+- PRE is added before name with space: `Dr. Jan Novák`
+- POST is added after name with comma: `Marie Dvořáková, Ph.D.`
+- Both can be combined: `Dr. Petr Svoboda, Ph.D.`
+- Empty fields are skipped (no extra spaces or commas)
 
 **Gender Auto-Detection:**
 - The app automatically detects gender from Czech first names (7,164 names from Ministry of Interior)

@@ -115,6 +115,8 @@ def generate_certificate(template_bytes, name, dob, gender='female', counter=1):
         '[DOB]': dob,
         '[YEAR]': str(year if year is not None else datetime.now().year),
         '[COUNTER]': str(counter),
+        '[PRE]': f'{pre} ' if pre else '',  # Add space after if not empty
+        '[POST]': f', {post}' if post else '',  # Add comma and space before if not empty
         # Common Czech verbs in past tense
         '[ZISKAL/A]': f'získal{verb_ending}',
         '[ABSOLVOVAL/A]': f'absolvoval{verb_ending}',
@@ -149,7 +151,9 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1, 
         first_person['dob'],
         first_person.get('gender', 'female'),
         starting_counter,
-        year
+        year,
+        first_person.get('pre', ''),
+        first_person.get('post', '')
     )
     
     # Add remaining certificates with page breaks
@@ -161,7 +165,9 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1, 
             person['dob'],
             person.get('gender', 'female'),
             starting_counter + idx,
-            year
+            year,
+            person.get('pre', ''),
+            person.get('post', '')
         )
         
         # Add page break to the last paragraph of the previous certificate

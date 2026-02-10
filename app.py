@@ -41,9 +41,9 @@ def render_csv_uploader():
     """Render the CSV upload section."""
     st.markdown("**Option A: Upload CSV File**")
     csv_file = st.file_uploader(
-        "Upload CSV (COUNTER,Surname,Name,DOB - no headers)",
+        "Upload CSV (COUNTER,PRE,Surname,Name,POST,DOB - no headers)",
         type=['csv'],
-        help="Format: COUNTER,Surname,Name,DOB (e.g., 15,Novák,Jan,01.01.1990)",
+        help="Format: COUNTER,PRE,Surname,Name,POST,DOB (e.g., 15,Dr.,Novák,Jan,Ph.D.,01.01.1990)",
         key="csv_uploader"
     )
     

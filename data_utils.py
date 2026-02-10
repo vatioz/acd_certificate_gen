@@ -54,7 +54,7 @@ def detect_gender_from_name(full_name):
 def parse_csv_file(csv_file):
     """
     Parses CSV file and returns list of people with their data.
-    Expected CSV format: COUNTER,Surname,Name,DOB (no headers)
+    Expected CSV format: COUNTER,PRE,Surname,Name,POST,DOB (no headers)
     
     Auto-detects gender based on Czech first name database.
     
@@ -63,7 +63,7 @@ def parse_csv_file(csv_file):
         
     Returns:
         Tuple of (people_list, first_counter)
-        - people_list: List of dicts with 'name', 'dob', 'gender', 'gender_detected'
+        - people_list: List of dicts with 'name', 'dob', 'gender', 'gender_detected', 'pre', 'post'
         - first_counter: Integer counter from first row, or None
     """
     # Read CSV with UTF-8 encoding and strip BOM if present
@@ -74,11 +74,13 @@ def parse_csv_file(csv_file):
     first_counter = None
     
     for row in csv_reader:
-        if len(row) >= 4:
+        if len(row) >= 6:
             counter = row[0].strip()
-            surname = row[1].strip()
-            name = row[2].strip()
-            dob = row[3].strip()
+            pre = row[1].strip()
+            surname = row[2].strip()
+            name = row[3].strip()
+            post = row[4].strip()
+            dob = row[5].strip()
             
             # Store first counter value
             if first_counter is None:
@@ -107,7 +109,9 @@ def parse_csv_file(csv_file):
                 'name': full_name,
                 'dob': formatted_dob,
                 'gender': detected_gender if detected_gender else 'female',  # Default to female if unknown
-                'gender_detected': gender_detected  # Track if auto-detected
+                'gender_detected': gender_detected,  # Track if auto-detected
+                'pre': pre,  # Prefix (e.g., "Dr.")
+                'post': post  # Suffix (e.g., "Ph.D.")
             })
     
     return imported_people, first_counter
