@@ -86,7 +86,7 @@ def replace_placeholders(doc, replacements):
     return doc
 
 
-def generate_certificate(template_bytes, name, dob, gender='female', counter=1):
+def generate_certificate(template_bytes, name, dob, gender='female', counter=1, year=None, pre='', post=''):
     """
     Generate a certificate from template with provided data.
     Returns a Document object (not bytes).
@@ -97,6 +97,9 @@ def generate_certificate(template_bytes, name, dob, gender='female', counter=1):
         dob: Date of birth (formatted string)
         gender: 'male' or 'female' (default: 'female')
         counter: Certificate number in the series (default: 1)
+        year: Certificate year (defaults to current year)
+        pre: Name prefix (e.g., "Dr."), added with space after if not empty
+        post: Name suffix (e.g., "Ph.D."), added with comma and space before if not empty
     """
     # Load template from bytes
     doc = Document(BytesIO(template_bytes))
@@ -152,8 +155,8 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1, 
         first_person.get('gender', 'female'),
         starting_counter,
         year,
-        first_person.get('pre', ''),
-        first_person.get('post', '')
+        pre=first_person.get('pre', ''),
+        post=first_person.get('post', '')
     )
     
     # Add remaining certificates with page breaks
@@ -166,8 +169,8 @@ def generate_multi_certificate(template_bytes, people_list, starting_counter=1, 
             person.get('gender', 'female'),
             starting_counter + idx,
             year,
-            person.get('pre', ''),
-            person.get('post', '')
+            pre=person.get('pre', ''),
+            post=person.get('post', '')
         )
         
         # Add page break to the last paragraph of the previous certificate

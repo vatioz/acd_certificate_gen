@@ -3,7 +3,7 @@ from datetime import datetime
 
 # Import from local modules
 from certificate_generator import generate_multi_certificate
-from data_utils import format_date_no_leading_zeros, parse_csv_file
+from data_utils import format_date_no_leading_zeros, parse_csv_file, parse_dates_in_people_list
 
 
 def initialize_session_state():
@@ -17,6 +17,8 @@ def initialize_session_state():
     
     if 'starting_counter' not in st.session_state:
         st.session_state.starting_counter = 1
+    if 'date_format' not in st.session_state:
+        st.session_state.date_format = 'Auto-detect (Czech DD/MM/YYYY priority)'
     
     if 'csv_uploaded' not in st.session_state:
         st.session_state.csv_uploaded = False
@@ -167,6 +169,31 @@ def render_people_list():
     st.subheader("3. Certificate Holders List")
     st.markdown(f"**Total: {len(st.session_state.people_list)} people**")
     
+    # Date format selector
+    date_format_options = [
+        'Auto-detect (Czech DD/MM/YYYY priority)',
+        'DD.MM.YYYY (Czech dots)',
+        'DD/MM/YYYY (European slashes)',
+        'MM/DD/YYYY (US)',
+        'YYYY-MM-DD (ISO)'
+    ]
+    
+    selected_format = st.selectbox(
+        "Date format in CSV",
+        options=date_format_options,
+        index=date_format_options.index(st.session_state.date_format),
+        help="Select the date format used in your CSV file. Dates shown below are unparsed - check they look correct."
+    )
+    
+    if selected_format != st.session_state.date_format:
+        st.session_state.date_format = selected_format
+        # Reparse dates with new format
+        st.session_state.people_list = parse_dates_in_people_list(
+            st.session_state.people_list,
+            selected_format
+        )
+        st.rerun()
+    
     # Header row
     col1, col2, col3, col4 = st.columns([3, 3, 1.5, 1])
     with col1:
@@ -196,7 +223,7 @@ def render_people_list():
             st.markdown(f"{warning}{dot} <span style='color: {text_color}; font-weight: 500;'>{person['name']}</span>", unsafe_allow_html=True)
         
         with col2:
-            st.text(person['dob'])
+            st.text(person.get('dob_raw', person['dob']))
         
         with col3:
             gender_icon = '👩 Žena' if current_gender == 'female' else '👨 Muž'
