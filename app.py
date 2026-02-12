@@ -58,6 +58,13 @@ def render_csv_uploader():
                 st.session_state.csv_uploaded = True
                 if first_counter is not None:
                     st.session_state.starting_counter = first_counter
+                
+                # Parse dates immediately using the current date format
+                st.session_state.people_list = parse_dates_in_people_list(
+                    st.session_state.people_list,
+                    st.session_state.date_format
+                )
+                
                 st.success(f"✅ Imported {len(imported_people)} people from CSV")
                 if first_counter is not None:
                     st.info(f"📊 Starting counter set to: {first_counter}")
