@@ -337,8 +337,9 @@ def render_sidebar():
         2. **Upload** the template using the file uploader
         
         3. **Add people** - Choose one of the options:
-           - **Option A: Upload CSV** - Format: COUNTER,Surname,Name,DOB
-             - Example: `15,Novák,Jan,01.01.1990`
+           - **Option A: Upload CSV** 
+             - Format: Číslo,Titul před,Příjmení,Jméno,Titul za,Datum narození
+             - Example: `15,Ing.,Novák,Jan,PhD.,01.01.1990`
              - No headers, UTF-8 encoding, comma-separated
              - Counter from first row sets starting number
            - **Option B: Manual Entry** - Enter individually
