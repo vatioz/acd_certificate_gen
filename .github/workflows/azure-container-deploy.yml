@@ -35,7 +35,7 @@ jobs:
         push: true
         tags: |
           ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
-          ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:build-${{ github.run_number }}
     
     - name: Azure Login (optional - for triggering App Service restart)
       uses: azure/login@v1
