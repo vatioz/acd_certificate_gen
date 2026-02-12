@@ -317,14 +317,15 @@ def render_sidebar():
         st.markdown("""
         1. **Prepare your template**: Create a Word document (.docx) with placeholders:
            - `[NAME]` - for the certificate holder's name
+           - `[PRE]` - for any title before the name (e.g. Dr. or Ing.)
+           - `[POST]` - for any title after the name (e.g., Ph.D.)
            - `[DOB]` - for the date of birth
            - `[COUNTER]` - certificate number (auto-increments)
            - `[YEAR]` - current year (automatic)
            - Gender-dependent verbs (Czech):
-             - `[ZÍSKAL/A]` → získal / získala
+             - `[ZISKAL/A]` → získal / získala
              - `[ABSOLVOVAL/A]` → absolvoval / absolvovala
-             - `[DOKONČIL/A]` → dokončil / dokončila
-             - `[SPLNIL/A]`, `[SLOŽIL/A]`, `[VYKONAL/A]`, etc.
+             - `[NAROZEN/A]` → narozen / narozená
         
         2. **Upload** the template using the file uploader
         

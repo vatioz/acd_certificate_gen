@@ -1,0 +1,50 @@
+name: Build and Deploy to Azure Container Registry
+
+# Trigger on push to main branch
+on:
+  push:
+    branches:
+      - main
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+
+env:
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  IMAGE_NAME: certgenimg
+  AZURE_WEBAPP_NAME: <your-app-service-name>  # TODO: Replace with your App Service name
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Login to Azure Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.ACR_LOGIN_SERVER }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+          ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+    
+    - name: Azure Login (optional - for triggering App Service restart)
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      continue-on-error: true
+    
+    - name: Restart Azure App Service (optional)
+      if: success()
+      run: |
+        az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group <your-rg-name>
+      continue-on-error: true
