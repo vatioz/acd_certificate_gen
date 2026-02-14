@@ -84,19 +84,23 @@ def render_analyzer_uploader():
     st.markdown("**Option A: Azure Analyzer (PDF)**")
     st.caption("Asynchronous parsing using Azure Content Understanding analyzer.")
 
-    pdf_file = st.file_uploader(
-        "Upload participant roster as PDF",
+    source_file = st.file_uploader(
+        "Upload participant roster PDF",
         type=['pdf'],
-        help="Supported in v1: PDF only",
+        help="Supported format: PDF",
         key="analyzer_pdf_uploader"
     )
+
+    if source_file is not None:
+        detected_type = source_file.type if source_file.type else "unknown"
+        st.caption(f"Detected file type: {detected_type} ({source_file.name})")
 
     col1, col2 = st.columns(2)
     with col1:
         start_analysis = st.button(
-            "🤖 Analyze PDF with Azure",
+            "🤖 Analyze File with Azure",
             type="secondary",
-            disabled=pdf_file is None or st.session_state.analyzer_status == 'running',
+            disabled=source_file is None or st.session_state.analyzer_status == 'running',
             use_container_width=True,
         )
     with col2:
@@ -112,9 +116,12 @@ def render_analyzer_uploader():
         reset_analyzer_state()
         st.rerun()
 
-    if start_analysis and pdf_file is not None:
+    if start_analysis and source_file is not None:
         try:
-            source_url = upload_pdf_to_blob_and_get_sas_url(pdf_file.read(), pdf_file.name)
+            source_url = upload_pdf_to_blob_and_get_sas_url(
+                source_file.read(),
+                source_file.name,
+            )
             client = ContentUnderstandingClient.from_env()
             submission = client.submit_document(source_url)
             st.session_state.analyzer_status = 'running'
@@ -125,7 +132,7 @@ def render_analyzer_uploader():
             st.session_state.analyzer_error = None
             st.session_state.analyzer_raw_result = None
             st.session_state.analyzer_last_poll_ts = 0.0
-            st.success("✅ PDF uploaded to Blob and analysis job submitted. Waiting for results...")
+            st.success("✅ File uploaded to Blob and analysis job submitted. Waiting for results...")
             st.rerun()
         except AnalyzerConfigError as e:
             st.error(f"❌ Analyzer configuration error: {str(e)}")
@@ -328,10 +335,14 @@ def render_data_input_section():
         horizontal=True,
     )
 
+    if st.session_state.data_input_mode not in ['Analyzer (PDF)', 'CSV Upload (backup)', 'Manual Entry (backup)']:
+        st.session_state.data_input_mode = 'Analyzer (PDF)'
+
     if st.button("🧹 Clear People List", type="secondary"):
         st.session_state.people_list = []
 
     if mode == 'Analyzer (PDF)':
+        st.session_state.date_format = 'YYYY-MM-DD (ISO)'
         render_analyzer_uploader()
     elif mode == 'CSV Upload (backup)':
         render_csv_uploader()
