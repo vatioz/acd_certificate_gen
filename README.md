@@ -7,6 +7,7 @@ A Streamlit web application for generating personalized certificates from Word d
 - Upload .docx certificate templates with full style preservation
 - Add multiple certificate holders to a list
 - **CSV bulk import** with COUNTER,Surname,Name,DOB format
+- **Azure Content Understanding (PDF) import** with asynchronous status polling
 - **Automatic gender detection** from Czech first names database (7,164 names from Ministry of Interior)
 - ⚠️ **Visual indicators** for unrecognized names requiring manual verification
 - 🔵🔴 **Color-coded names** for easy gender review (blue for male, pink for female)
@@ -29,6 +30,14 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Local secrets via `.env` (recommended)
+
+1. Copy `.env.example` to `.env`
+2. Fill real values in `.env`
+3. Run app normally (`streamlit run app.py`)
+
+The app loads `.env` automatically at startup using `python-dotenv`.
+
 1. Run the application:
 ```bash
 streamlit run app.py
@@ -41,9 +50,37 @@ streamlit run app.py
    - `[DOB]` - for the date of birth
 
 4. Add certificate holders:
-   - **Option A: Manual Entry** - Enter Full Name and Date of Birth
-   - **Option B: CSV Upload** - Upload CSV file with COUNTER,Surname,Name,DOB format
+   - Use input mode selector: **Analyzer (PDF)**, **CSV Upload (backup)**, or **Manual Entry (backup)**
+   - **Analyzer (PDF)** - Upload roster PDF and run Azure analyzer
+   - **CSV Upload (backup)** - Upload CSV file with COUNTER,Surname,Name,DOB format
+   - **Manual Entry (backup)** - Enter Full Name and Date of Birth
    - Use "Add 8 Test People" button for quick testing
+
+### Azure Analyzer Configuration
+
+Set these environment variables before running the app:
+
+```bash
+CONTENT_UNDERSTANDING_ENDPOINT=https://<ai-foundry-service>.services.ai.azure.com
+CONTENT_UNDERSTANDING_API_KEY=<your-key>
+CONTENT_UNDERSTANDING_ANALYZER_ID=PeopleListAnalyzer
+CONTENT_UNDERSTANDING_API_VERSION=2025-11-01
+# Optional: only if your key setup requires regional header
+CONTENT_UNDERSTANDING_REGION=<region-like-westeurope>
+
+AZURE_STORAGE_ACCOUNT_NAME=<your-storage-account-name>
+AZURE_STORAGE_ACCOUNT_KEY=<your-storage-account-key>
+AZURE_STORAGE_CONTAINER_NAME=<your-container-name>
+# Optional (defaults to https://<account>.blob.core.windows.net)
+AZURE_STORAGE_BLOB_ENDPOINT=https://<your-storage-account-name>.blob.core.windows.net
+```
+
+Notes:
+- Analyzer mode currently supports PDF input only.
+- Analyzer request follows Microsoft "Analyze a file" flow: file is uploaded to Azure Blob and submitted as a SAS URL in `inputs[].url`.
+- Temporary Blob source files are deleted automatically after analyzer completion (best effort).
+- Analyzer import replaces the current people list by design.
+- If Azure variables are not set, CSV and Manual backup modes still work.
 
 5. Review the list of certificate holders:
    - Names with ⚠️ indicator require gender verification
@@ -209,6 +246,15 @@ To deploy on Azure App Service:
 4. Configure port binding in Azure portal
 
 ## Version History
+
+- **0.6** (2026-02-15)
+   - Added Azure Content Understanding analyzer integration with asynchronous processing
+   - Switched analyzer input to Blob SAS URL flow (`inputs[].url`) per Microsoft docs
+   - Added temporary Blob cleanup after analyzer completion (best effort)
+   - Added radio-based input mode selector (Analyzer / CSV backup / Manual backup)
+   - Added optional regional header support (`CONTENT_UNDERSTANDING_REGION`)
+   - Added `.env` support with automatic loading via `python-dotenv`
+   - Added `.env.example` and updated `.gitignore` for local secret safety
 
 - **0.5** (2025-02-08)
   - Refactored code into modular structure (certificate_generator.py, data_utils.py)

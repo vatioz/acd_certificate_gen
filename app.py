@@ -1,9 +1,21 @@
 import streamlit as st
 from datetime import datetime
+import time
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 # Import from local modules
 from certificate_generator import generate_multi_certificate
 from data_utils import format_date_no_leading_zeros, parse_csv_file, parse_dates_in_people_list
+from analyzer_client import (
+    AnalyzerApiError,
+    AnalyzerConfigError,
+    ContentUnderstandingClient,
+    delete_blob_from_sas_url,
+    map_analyzer_result_to_people,
+    upload_pdf_to_blob_and_get_sas_url,
+)
 
 
 def initialize_session_state():
@@ -20,8 +32,174 @@ def initialize_session_state():
     if 'date_format' not in st.session_state:
         st.session_state.date_format = 'Auto-detect (Czech DD/MM/YYYY priority)'
     
-    if 'csv_uploaded' not in st.session_state:
-        st.session_state.csv_uploaded = False
+    if 'data_input_mode' not in st.session_state:
+        st.session_state.data_input_mode = 'Analyzer (PDF)'
+
+    if 'analyzer_status' not in st.session_state:
+        st.session_state.analyzer_status = 'idle'
+    if 'analyzer_operation_id' not in st.session_state:
+        st.session_state.analyzer_operation_id = None
+    if 'analyzer_operation_location' not in st.session_state:
+        st.session_state.analyzer_operation_location = None
+    if 'analyzer_error' not in st.session_state:
+        st.session_state.analyzer_error = None
+    if 'analyzer_raw_result' not in st.session_state:
+        st.session_state.analyzer_raw_result = None
+    if 'analyzer_last_poll_ts' not in st.session_state:
+        st.session_state.analyzer_last_poll_ts = 0.0
+    if 'analyzer_poll_interval_seconds' not in st.session_state:
+        st.session_state.analyzer_poll_interval_seconds = 2.0
+    if 'analyzer_input_url' not in st.session_state:
+        st.session_state.analyzer_input_url = None
+    if 'analyzer_blob_cleanup_done' not in st.session_state:
+        st.session_state.analyzer_blob_cleanup_done = False
+
+
+def reset_analyzer_state():
+    """Reset analyzer async job state."""
+    st.session_state.analyzer_status = 'idle'
+    st.session_state.analyzer_operation_id = None
+    st.session_state.analyzer_operation_location = None
+    st.session_state.analyzer_error = None
+    st.session_state.analyzer_raw_result = None
+    st.session_state.analyzer_last_poll_ts = 0.0
+    st.session_state.analyzer_input_url = None
+    st.session_state.analyzer_blob_cleanup_done = False
+
+
+def apply_imported_people(imported_people, first_counter=None):
+    """Apply imported people to the app state and parse dates."""
+    st.session_state.people_list = imported_people
+    if first_counter is not None:
+        st.session_state.starting_counter = first_counter
+
+    st.session_state.people_list = parse_dates_in_people_list(
+        st.session_state.people_list,
+        st.session_state.date_format
+    )
+
+
+def render_analyzer_uploader():
+    """Render Azure Content Understanding analyzer upload and async status UI."""
+    st.markdown("**Option A: Azure Analyzer (PDF)**")
+    st.caption("Asynchronous parsing using Azure Content Understanding analyzer.")
+
+    pdf_file = st.file_uploader(
+        "Upload participant roster as PDF",
+        type=['pdf'],
+        help="Supported in v1: PDF only",
+        key="analyzer_pdf_uploader"
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        start_analysis = st.button(
+            "🤖 Analyze PDF with Azure",
+            type="secondary",
+            disabled=pdf_file is None or st.session_state.analyzer_status == 'running',
+            use_container_width=True,
+        )
+    with col2:
+        reset_analysis = st.button(
+            "🧹 Reset Analyzer State",
+            type="secondary",
+            use_container_width=True,
+        )
+
+    if reset_analysis:
+        if st.session_state.analyzer_input_url and not st.session_state.analyzer_blob_cleanup_done:
+            delete_blob_from_sas_url(st.session_state.analyzer_input_url)
+        reset_analyzer_state()
+        st.rerun()
+
+    if start_analysis and pdf_file is not None:
+        try:
+            source_url = upload_pdf_to_blob_and_get_sas_url(pdf_file.read(), pdf_file.name)
+            client = ContentUnderstandingClient.from_env()
+            submission = client.submit_document(source_url)
+            st.session_state.analyzer_status = 'running'
+            st.session_state.analyzer_operation_id = submission.get('operation_id')
+            st.session_state.analyzer_operation_location = submission.get('operation_location')
+            st.session_state.analyzer_input_url = source_url
+            st.session_state.analyzer_blob_cleanup_done = False
+            st.session_state.analyzer_error = None
+            st.session_state.analyzer_raw_result = None
+            st.session_state.analyzer_last_poll_ts = 0.0
+            st.success("✅ PDF uploaded to Blob and analysis job submitted. Waiting for results...")
+            st.rerun()
+        except AnalyzerConfigError as e:
+            st.error(f"❌ Analyzer configuration error: {str(e)}")
+        except AnalyzerApiError as e:
+            st.error(f"❌ Analyzer API error: {str(e)}")
+        except Exception as e:
+            st.error(f"❌ Unexpected analyzer error: {str(e)}")
+
+    status = st.session_state.analyzer_status
+
+    if status == 'running':
+        now = time.time()
+        poll_interval = st.session_state.analyzer_poll_interval_seconds
+        should_poll = (now - st.session_state.analyzer_last_poll_ts) >= poll_interval
+
+        if should_poll:
+            try:
+                client = ContentUnderstandingClient.from_env()
+                poll_data = client.poll_operation(
+                    st.session_state.analyzer_operation_id,
+                    st.session_state.analyzer_operation_location,
+                )
+
+                st.session_state.analyzer_last_poll_ts = now
+                st.session_state.analyzer_status = poll_data['status']
+                st.session_state.analyzer_raw_result = poll_data['raw']
+                st.session_state.analyzer_error = poll_data.get('error')
+
+                if poll_data['status'] == 'succeeded':
+                    imported_people, first_counter = map_analyzer_result_to_people(poll_data['raw'])
+
+                    if imported_people:
+                        apply_imported_people(imported_people, first_counter)
+                        st.success(f"✅ Analyzer imported {len(imported_people)} people.")
+                    else:
+                        st.session_state.analyzer_status = 'failed'
+                        st.session_state.analyzer_error = "Analyzer succeeded but no participants were detected."
+                elif poll_data['status'] == 'failed' and not st.session_state.analyzer_error:
+                    st.session_state.analyzer_error = "Analyzer job failed."
+
+            except AnalyzerConfigError as e:
+                st.session_state.analyzer_status = 'failed'
+                st.session_state.analyzer_error = str(e)
+            except AnalyzerApiError as e:
+                st.session_state.analyzer_status = 'failed'
+                st.session_state.analyzer_error = str(e)
+            except Exception as e:
+                st.session_state.analyzer_status = 'failed'
+                st.session_state.analyzer_error = str(e)
+
+        if st.session_state.analyzer_status == 'running':
+            st.info("⏳ Analyzer is running... refreshing status automatically.")
+            time.sleep(1.0)
+            st.rerun()
+
+    if st.session_state.analyzer_status == 'succeeded':
+        st.success(f"✅ Latest analyzer import is ready ({len(st.session_state.people_list)} people loaded).")
+        if st.session_state.analyzer_input_url:
+            st.caption("Source file was submitted through Azure Blob SAS URL.")
+
+    if st.session_state.analyzer_status == 'failed':
+        st.error(f"❌ Analyzer failed: {st.session_state.analyzer_error or 'Unknown error'}")
+
+    if (
+        st.session_state.analyzer_status in ('succeeded', 'failed')
+        and st.session_state.analyzer_input_url
+        and not st.session_state.analyzer_blob_cleanup_done
+    ):
+        cleanup_ok = delete_blob_from_sas_url(st.session_state.analyzer_input_url)
+        st.session_state.analyzer_blob_cleanup_done = True
+        if cleanup_ok:
+            st.caption("🧹 Temporary Blob source file was deleted.")
+        else:
+            st.caption("⚠️ Could not delete temporary Blob source file automatically.")
 
 
 def render_template_uploader():
@@ -41,7 +219,7 @@ def render_template_uploader():
 
 def render_csv_uploader():
     """Render the CSV upload section."""
-    st.markdown("**Option A: Upload CSV File**")
+    st.markdown("**CSV Upload (backup)**")
     csv_file = st.file_uploader(
         "Upload CSV (COUNTER,PRE,Surname,Name,POST,DOB - no headers)",
         type=['csv'],
@@ -54,16 +232,7 @@ def render_csv_uploader():
             imported_people, first_counter = parse_csv_file(csv_file)
             
             if imported_people:
-                st.session_state.people_list = imported_people
-                st.session_state.csv_uploaded = True
-                if first_counter is not None:
-                    st.session_state.starting_counter = first_counter
-                
-                # Parse dates immediately using the current date format
-                st.session_state.people_list = parse_dates_in_people_list(
-                    st.session_state.people_list,
-                    st.session_state.date_format
-                )
+                apply_imported_people(imported_people, first_counter)
                 
                 st.success(f"✅ Imported {len(imported_people)} people from CSV")
                 if first_counter is not None:
@@ -78,7 +247,7 @@ def render_csv_uploader():
 
 def render_manual_entry_form():
     """Render the manual entry form section."""
-    st.markdown("**Option B: Manual Entry**")
+    st.markdown("**Manual Entry (backup)**")
     
     # Test button to add 8 sample people
     if st.button("🧪 Add 8 Test People", type="secondary"):
@@ -149,22 +318,24 @@ def render_manual_entry_form():
 
 
 def render_data_input_section():
-    """Render the complete data input section (CSV + Manual Entry)."""
+    """Render data input section with mode selector (Analyzer, CSV, Manual)."""
     st.subheader("2. Add Certificate Holders")
-    
-    # Clear button
-    if not st.session_state.people_list or st.button("🔄 Clear and Upload New CSV", type="secondary"):
+
+    mode = st.radio(
+        "Choose input method",
+        options=['Analyzer (PDF)', 'CSV Upload (backup)', 'Manual Entry (backup)'],
+        key='data_input_mode',
+        horizontal=True,
+    )
+
+    if st.button("🧹 Clear People List", type="secondary"):
         st.session_state.people_list = []
-        st.session_state.csv_uploaded = False
-    
-    if not st.session_state.csv_uploaded:
+
+    if mode == 'Analyzer (PDF)':
+        render_analyzer_uploader()
+    elif mode == 'CSV Upload (backup)':
         render_csv_uploader()
-        st.markdown("**Option B: Manual Entry**")
     else:
-        st.info(f"📊 CSV loaded with {len(st.session_state.people_list)} people. Use the button above to upload a different CSV.")
-    
-    # Manual entry - only show if CSV not uploaded
-    if not st.session_state.csv_uploaded:
         render_manual_entry_form()
 
 
@@ -186,10 +357,10 @@ def render_people_list():
     ]
     
     selected_format = st.selectbox(
-        "Date format in CSV",
+        "Date format in imported data",
         options=date_format_options,
         index=date_format_options.index(st.session_state.date_format),
-        help="Select the date format used in your CSV file. Dates shown below are unparsed - check they look correct."
+        help="Select the date format used in imported data. Dates shown below are raw values from source."
     )
     
     if selected_format != st.session_state.date_format:
@@ -250,6 +421,10 @@ def render_people_list():
 def render_certificate_generator():
     """Render the certificate generation section."""
     if not st.session_state.people_list:
+        return
+
+    if st.session_state.analyzer_status == 'running':
+        st.warning("⏳ Analyzer import is still running. Wait for completion before generating certificates.")
         return
     
     st.subheader("4. Generate Certificates")
@@ -337,12 +512,15 @@ def render_sidebar():
         2. **Upload** the template using the file uploader
         
         3. **Add people** - Choose one of the options:
-           - **Option A: Upload CSV** 
-             - Format: Číslo,Titul před,Příjmení,Jméno,Titul za,Datum narození
-             - Example: `15,Ing.,Novák,Jan,PhD.,01.01.1990`
-             - No headers, UTF-8 encoding, comma-separated
-             - Counter from first row sets starting number
-           - **Option B: Manual Entry** - Enter individually
+                     - **Analyzer (PDF)**
+                         - Upload a roster PDF and run asynchronous extraction
+                         - Requires Azure Content Understanding environment variables
+                     - **CSV Upload (backup)**
+                         - Format: Číslo,Titul před,Příjmení,Jméno,Titul za,Datum narození
+                         - Example: `15,Ing.,Novák,Jan,PhD.,01.01.1990`
+                         - No headers, UTF-8 encoding, comma-separated
+                         - Counter from first row sets starting number
+                     - **Manual Entry (backup)** - Enter individually
            - **Test Data** - Quick test with 8 sample people
            - All imported people default to 👩 Žena
         
@@ -361,7 +539,7 @@ def render_sidebar():
         """)
         
         st.divider()
-        st.caption("Version 0.5 - Refactored & Modular")
+        st.caption("Version 0.6 - Analyzer Integration & .env Support")
 
 
 def main():
