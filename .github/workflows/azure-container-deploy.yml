@@ -27,6 +27,9 @@ jobs:
         registry: ${{ secrets.ACR_LOGIN_SERVER }}
         username: ${{ secrets.ACR_USERNAME }}
         password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Compute sortable build tag
+      run: echo "BUILD_TAG=build-$(printf '%06d' ${GITHUB_RUN_NUMBER})" >> $GITHUB_ENV
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -35,7 +38,7 @@ jobs:
         push: true
         tags: |
           ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
-          ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:build-${{ github.run_number }}
+          ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
     
     - name: Azure Login (optional - for triggering App Service restart)
       uses: azure/login@v1
