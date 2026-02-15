@@ -111,7 +111,7 @@ def build_people_csv_export(people_list, starting_counter):
 
 def render_analyzer_uploader():
     """Render Azure Content Understanding analyzer upload and async status UI."""
-    st.markdown("**Option A: Azure Analyzer (PDF)**")
+    st.markdown("**Azure Analyzer (PDF)**")
     st.caption("Asynchronous parsing using Azure Content Understanding analyzer.")
 
     source_file = st.file_uploader(
