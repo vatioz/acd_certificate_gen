@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all application files
 COPY app.py .
+COPY analyzer_client.py .
 COPY certificate_generator.py .
 COPY czech_names.py .
 COPY data_utils.py .
