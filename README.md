@@ -14,6 +14,7 @@ A Streamlit web application for generating personalized certificates from Word d
 - **Gender selection with automatic verb conjugation (Czech)**
 - **Certificate numbering with auto-increment counter**
 - **Automatic year insertion**
+- **People list CSV export** (`Counter,Surname,Name,DOB`)
 - Replace placeholders with personalized data
 - Generate all certificates in a single document (one certificate per page)
 - Preserves all template formatting: fonts, styles, watermarks, headings
@@ -89,7 +90,9 @@ Notes:
 
 6. Click "Generate All Certificates"
 
-7. Download the single .docx file containing all certificates
+7. Download outputs:
+   - People list CSV (`Counter,Surname,Name,DOB`)
+   - Certificate .docx file containing all generated certificates
 
 ## Template Placeholders
 

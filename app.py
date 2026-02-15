@@ -1,6 +1,8 @@
 import streamlit as st
 from datetime import datetime
 import time
+import csv
+from io import StringIO
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -77,6 +79,34 @@ def apply_imported_people(imported_people, first_counter=None):
         st.session_state.people_list,
         st.session_state.date_format
     )
+
+
+def split_full_name_for_export(full_name):
+    """Split full name to Name and Surname for export CSV."""
+    parts = full_name.strip().split()
+    if len(parts) == 0:
+        return "", ""
+    if len(parts) == 1:
+        return parts[0], ""
+
+    surname = parts[-1]
+    name = " ".join(parts[:-1])
+    return name, surname
+
+
+def build_people_csv_export(people_list, starting_counter):
+    """Build CSV content for final people list export."""
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Counter", "Surname", "Name", "DOB"])
+
+    for index, person in enumerate(people_list):
+        counter = int(starting_counter) + index
+        name_value, surname_value = split_full_name_for_export(person.get('name', ''))
+        dob_value = person.get('dob', person.get('dob_raw', ''))
+        writer.writerow([counter, surname_value, name_value, dob_value])
+
+    return output.getvalue().encode("utf-8-sig")
 
 
 def render_analyzer_uploader():
@@ -489,66 +519,65 @@ def render_certificate_generator():
 
 def render_download_section():
     """Render the download section."""
-    if 'generated_cert' not in st.session_state or not st.session_state.people_list:
+    if not st.session_state.people_list:
         return
     
-    st.subheader("5. Download Certificates")
-    st.download_button(
-        label=f"📥 Download {len(st.session_state.people_list)} Certificate(s)",
-        data=st.session_state.generated_cert,
-        file_name=st.session_state.cert_filename,
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        type="secondary",
-        use_container_width=True
+    st.subheader("5. Download")
+
+    csv_data = build_people_csv_export(
+        st.session_state.people_list,
+        st.session_state.starting_counter,
     )
+    st.download_button(
+        label=f"📥 Download People List CSV ({len(st.session_state.people_list)} rows)",
+        data=csv_data,
+        file_name=f"people_list_{datetime.now().strftime('%Y%m%d')}.csv",
+        mime="text/csv",
+        type="secondary",
+        use_container_width=True,
+    )
+
+    if 'generated_cert' in st.session_state:
+        st.download_button(
+            label=f"📥 Download {len(st.session_state.people_list)} Certificate(s)",
+            data=st.session_state.generated_cert,
+            file_name=st.session_state.cert_filename,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            type="secondary",
+            use_container_width=True
+        )
 
 
 def render_sidebar():
-    """Render the sidebar with instructions."""
+    """Render the sidebar with concise instructions."""
     with st.sidebar:
-        st.header("ℹ️ Instructions")
-        st.markdown("""
-        1. **Prepare your template**: Create a Word document (.docx) with placeholders:
-           - `[NAME]` - for the certificate holder's name
-           - `[PRE]` - for any title before the name (e.g. Dr. or Ing.)
-           - `[POST]` - for any title after the name (e.g., Ph.D.)
-           - `[DOB]` - for the date of birth
-           - `[COUNTER]` - certificate number (auto-increments)
-           - `[YEAR]` - current year (automatic)
-           - Gender-dependent verbs (Czech):
-             - `[ZISKAL/A]` → získal / získala
-             - `[ABSOLVOVAL/A]` → absolvoval / absolvovala
-             - `[NAROZEN/A]` → narozen / narozená
-        
-        2. **Upload** the template using the file uploader
-        
-        3. **Add people** - Choose one of the options:
-                     - **Analyzer (PDF)**
-                         - Upload a roster PDF and run asynchronous extraction
-                         - Requires Azure Content Understanding environment variables
-                     - **CSV Upload (backup)**
-                         - Format: Číslo,Titul před,Příjmení,Jméno,Titul za,Datum narození
-                         - Example: `15,Ing.,Novák,Jan,PhD.,01.01.1990`
-                         - No headers, UTF-8 encoding, comma-separated
-                         - Counter from first row sets starting number
-                     - **Manual Entry (backup)** - Enter individually
-           - **Test Data** - Quick test with 8 sample people
-           - All imported people default to 👩 Žena
-        
-        4. **Review** the list and adjust gender if needed
-           - Click gender button to toggle male/female
-        
-        5. **Set starting number** for the certificate series
-           - Counter auto-increments for each person
-        
-        6. **Generate** all certificates in a single document
-           - Each certificate will be on a separate page
-        
-        7. **Download** the single file with all certificates
-        
-        8. **Repeat** - The template is preserved for future use!
-        """)
-        
+        st.header("ℹ️ Quick Hints")
+        st.markdown(
+            """
+**1) Upload template**
+- Use `.docx` with placeholders
+  - `[PRE]`, `[NAME]`, `[POST]`, 
+  - `[DOB]` for date of birth,
+  - `[COUNTER]`, `[YEAR]`,
+  - `[ZISKAL/A]`, `[ABSOLVOVAL/A]`, `[NAROZEN/A]` for gendered verbs
+
+**2) Add people**
+- Prefer **Analyzer (PDF)**.
+- Use **CSV/Manual** as backup.
+
+**3) Quick review**
+- Check names and dates.
+- Toggle gender if needed.
+
+**4) Generate + Download**
+- Set start counter, generate certificates.
+- Download both `.docx` and people-list CSV.
+
+**Tip**
+- To start over, simply refresh the page
+"""
+        )
+
         st.divider()
         st.caption("Version 0.6 - Analyzer Integration & .env Support")
 
